@@ -1,8 +1,5 @@
-redis
-openai 
-numpy
-tiktoken
+
+openai
 fastapi
 uvicorn[standard]
 typing
-pandas

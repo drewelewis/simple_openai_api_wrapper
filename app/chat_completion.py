@@ -1,26 +1,18 @@
 import os
-from openai import AzureOpenAI
+import ai.azure_openai_client as azure_openai_client
 
-client = AzureOpenAI(
-    api_key=os.getenv("_OPENAI_API_KEY"),  
-    api_version=os.getenv("_OPENAI_API_VERSION"),
-    azure_endpoint = os.getenv("_OPENAI_API_BASE")
-    
-)
+
 
 def get(query: str) -> str:
-
-    response = client.chat.completions.create(
-        model="gpt-35-turbo",
-        messages=[
-            {"role": "system", "content": "Assistant is a large language model trained by OpenAI."},
-            {"role": "user", "content": query}
-        ],
-    )
-
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]
+    messages.append({"role": "user", "content": query})
+    client = azure_openai_client.client()
+    completion = client.completion(messages, max_tokens=10000)
     try:
-        return response.choices[0].message.content
+        message=completion.choices[0].message.content
+        return message
     except Exception as e:
         return "There was an issue with your request, please try again later"
     
-

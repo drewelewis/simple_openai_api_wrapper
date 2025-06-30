@@ -8,5 +8,6 @@ app = FastAPI()
 @app.get("/")
 async def root(query: str = "how are you?"):
     message=chat_completion.get(query)
+    # message="hello world"
     return message
     
