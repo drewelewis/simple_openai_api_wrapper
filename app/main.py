@@ -2,19 +2,24 @@ import re
 from fastapi import FastAPI
 
 from app import chat_completion
+from models.model import Messages
 
 app = FastAPI()
 
-@app.get("/")
-async def root(query: str = "how are you?"):
-    response=chat_completion.get(query)
-    # message="hello world"
+# Create input model for chat messages
+from pydantic import BaseModel, Field
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+@app.get("/completion")
+async def completion(query: str = "how are you?"):
+    response=chat_completion.completion(query)
     return response
 
-# chat with messages input
-# get the messages from the request body
 @app.post("/chat")
-async def chat(messages: str):
-    response=chat_completion.chat(messages)
-    # message="hello world"
-    return response
+async def chat(messages: Messages):
+    messages=chat_completion.chat(messages.messages)
+    return messages[-1].content 

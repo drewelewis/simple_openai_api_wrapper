@@ -1,10 +1,3 @@
-from app import chat_completion
-
-def test():
-    # Example usage of the chat_completion module
-    response = chat_completion.get("how are you?")
-    print(response)
-
 if __name__ == "__main__":
     # test()
 
