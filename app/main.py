@@ -7,7 +7,14 @@ app = FastAPI()
 
 @app.get("/")
 async def root(query: str = "how are you?"):
-    message=chat_completion.get(query)
+    response=chat_completion.get(query)
     # message="hello world"
-    return message
-    
+    return response
+
+# chat with messages input
+# get the messages from the request body
+@app.post("/chat")
+async def chat(messages: str):
+    response=chat_completion.chat(messages)
+    # message="hello world"
+    return response
