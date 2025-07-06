@@ -5,9 +5,12 @@ from models.model import Messages, Message
 
 
 def completion(query: str) -> str:
-    messages = Messages(messages=[
-        {"role": "user", "content": query}
-    ])
+    messages=[]
+    # add system message to top to the messages list
+    prompt = os.getenv("OPENAI_PROMPT", "You are a helpful assistant.")
+    messages.insert(0, Message(role="system", content=prompt))
+    messages.append(Message(role="user", content=query))
+
     client = azure_openai_client.client()
     completion = client.completion(messages, max_tokens=10000)
     try:
