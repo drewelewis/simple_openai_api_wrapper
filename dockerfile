@@ -17,6 +17,7 @@ RUN apk add --no-cache \
 
 COPY ./app /code/app
 COPY ./ai /code/ai
+COPY ./models /code/models
 
 EXPOSE 8989
 EXPOSE 80
