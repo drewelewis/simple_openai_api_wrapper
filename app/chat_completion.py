@@ -30,8 +30,8 @@ def chat(messages: list[Message]) -> str:
     completion = client.completion(messages=messages, max_tokens=10000)
     try:
         message=completion.choices[0].message.content
-        ai_message = Message(role="assistant", content=message)
-        messages.append(ai_message)
-        return messages
+        # ai_message = Message(role="assistant", content=message)
+        # messages.append(ai_message)
+        return message
     except Exception as e:
         return "There was an issue with your request, please try again later"
