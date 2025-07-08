@@ -21,5 +21,5 @@ async def completion(query: str = "how are you?"):
 
 @app.post("/chat")
 async def chat(messages: Messages):
-    messages=chat_completion.chat(messages.messages)
-    return messages[-1].content 
+    message=chat_completion.chat(messages.messages)
+    return message
