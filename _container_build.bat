@@ -1,1 +1,0 @@
-docker buildx build --tag simpleopenaiapiwrapper:latest --file dockerfile .
