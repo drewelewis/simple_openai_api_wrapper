@@ -4,6 +4,7 @@ from openai import APIError, RateLimitError, AuthenticationError, APIConnectionE
 import ai.azure_openai_client as azure_openai_client
 
 from app import chat_completion
+from agents import agent_bing_grounding
 from models.model import Messages
 
 app = FastAPI()
@@ -95,3 +96,11 @@ async def completion(query: str = "how are you?"):
 async def chat(messages: Messages):
     message=chat_completion.chat(messages.messages)
     return message
+
+@app.post("/bing-grounding")
+async def bing_grounding(query: str):
+    """Endpoint for Bing grounding agent chat with citations"""
+    import json
+    response = agent_bing_grounding.chat(query)
+    # Parse the JSON string and return as dict for proper JSON response
+    return json.loads(response)
