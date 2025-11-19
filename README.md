@@ -1,11 +1,14 @@
-# Azure FastAPI Wrapper over Azure OpenAI
+# Azure FastAPI Wrapper over Azure OpenAI & Azure AI Agent Service
 
-A FastAPI-based wrapper service for Azure OpenAI with health monitoring, designed to run on Azure Container Apps with API Management load balancing.
+A FastAPI-based wrapper service for Azure OpenAI and Azure AI Agent Service with health monitoring, designed to run on Azure Container Apps with API Management load balancing. This service can be exposed as an MCP (Model Context Protocol) server through APIM.
 
 ## Table of Contents
 - [Features](#features)
+- [Architecture Overview](#architecture-overview)
 - [Getting Started](#getting-started)
 - [API Endpoints](#api-endpoints)
+- [Azure AI Agent Wrapper](#azure-ai-agent-wrapper)
+- [MCP Server via APIM](#mcp-server-via-apim)
 - [Azure API Management Setup](#azure-api-management-setup)
 - [APIM Policy Details](#apim-policy-details)
 - [Health Check & Circuit Breaker](#health-check--circuit-breaker)
@@ -15,12 +18,62 @@ A FastAPI-based wrapper service for Azure OpenAI with health monitoring, designe
 ## Features
 
 ✅ FastAPI wrapper for Azure OpenAI completion and chat endpoints  
+✅ **Azure AI Agent Service wrapper** with Bing grounding capabilities  
+✅ **Structured JSON responses** with citations from grounded agents  
+✅ **MCP Server deployment** via Azure API Management  
 ✅ Health check endpoint with Azure OpenAI connectivity verification  
 ✅ Returns proper HTTP status codes (200, 401, 429, 503)  
 ✅ Ready for Azure Container Apps deployment  
 ✅ APIM policies for load balancing with session affinity  
 ✅ Circuit breaker pattern for automatic failover  
 ✅ Automatic backend recovery on health restoration  
+✅ **Extensible agent architecture** using Abstract Base Classes
+
+## Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    [CLIENT APPLICATIONS]                      │
+│              (MCP Clients, Web Apps, APIs)                   │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│              [AZURE API MANAGEMENT]                          │
+│              • MCP Server Endpoint                           │
+│              • Load Balancing                                │
+│              • Circuit Breaker                               │
+│              • Session Affinity                              │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+         ┌────────────────┼────────────────┐
+         │                │                │
+         ▼                ▼                ▼
+┌─────────────────┐ ┌─────────────────┐ ...
+│  [CONTAINER     │ │  [CONTAINER     │
+│   APP #1]       │ │   APP #2]       │
+│                 │ │                 │
+│  FastAPI Server │ │  FastAPI Server │
+│  ┌───────────┐  │ │  ┌───────────┐  │
+│  │ OpenAI    │  │ │  │ OpenAI    │  │
+│  │ Wrapper   │  │ │  │ Wrapper   │  │
+│  └───────────┘  │ │  └───────────┘  │
+│  ┌───────────┐  │ │  ┌───────────┐  │
+│  │ AI Agent  │  │ │  │ AI Agent  │  │
+│  │ Wrapper   │  │ │  │ Wrapper   │  │
+│  └─────┬─────┘  │ │  └─────┬─────┘  │
+└────────┼────────┘ └────────┼────────┘
+         │                   │
+         └───────────┬───────┘
+                     │
+                     ▼
+         ┌─────────────────────────┐
+         │ [AZURE AI AGENT SERVICE]│
+         │  • Bing Grounding       │
+         │  • Citation Extraction  │
+         │  • Thread Management    │
+         └─────────────────────────┘
+```  
 
 ## Getting Started
 
@@ -129,6 +182,186 @@ curl -X POST http://localhost:8000/chat \
       {"role": "user", "content": "What is Azure?"}
     ]
   }'
+```
+
+### POST /bing-grounding
+**Azure AI Agent wrapper endpoint** with Bing grounding and citation support. This endpoint wraps an Azure AI Agent Service agent that uses Bing search for grounded responses.
+
+**Parameters:**
+- `query` (string, required) - The user query to process
+
+**Response:** JSON with structured content and citations
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/bing-grounding?query=What happened in finance today?"
+```
+
+**Success Response:**
+```json
+{
+  "content": "Today in finance, the U.S. stock market saw a sharp decline, with the Dow Jones Industrial Average plunging almost 800 points (down 1.6%), and both the Nasdaq and S&P 500 also posting significant losses...",
+  "citations": [
+    {
+      "id": 1,
+      "type": "url",
+      "url": "https://www.marketwatch.com/...",
+      "title": "Stock Market News Today"
+    },
+    {
+      "id": 2,
+      "type": "url",
+      "url": "https://www.cnbc.com/...",
+      "title": "Federal Reserve Commentary"
+    }
+  ]
+}
+```
+
+**Features:**
+- ✅ Grounded responses using Bing search
+- ✅ Automatic citation extraction and formatting
+- ✅ Clean content (inline citation markers removed)
+- ✅ Structured JSON response
+
+---
+
+## Azure AI Agent Wrapper
+
+This service provides a **FastAPI wrapper around Azure AI Agent Service**, enabling you to expose AI agents as REST APIs that can be consumed by any application or deployed as an MCP server.
+
+### Agent Architecture
+
+The wrapper uses an **Abstract Base Class (ABC)** pattern for extensibility:
+
+```python
+agents/
+├── base_agent.py              # Abstract base class for all agents
+└── agent_bing_grounding.py    # Bing grounding agent implementation
+```
+
+#### BaseAgent (ABC)
+```python
+class BaseAgent(ABC):
+    """Abstract base class for all agents"""
+    
+    def __init__(self, endpoint: str = None, agent_id: str = None):
+        self.endpoint = endpoint
+        self.agent_id = agent_id
+    
+    @abstractmethod
+    def chat(self, message: str) -> str:
+        """Process a message and return response"""
+        pass
+```
+
+#### BingGroundingAgent
+Concrete implementation that:
+- Connects to Azure AI Agent Service
+- Creates conversation threads
+- Extracts and formats citations from Bing-grounded responses
+- Returns structured JSON with content and citations
+
+### Configuration
+
+Add these environment variables to `.env`:
+
+```env
+# Azure AI Agent Configuration
+AZURE_AI_PROJECT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/yourProject"
+AZURE_AI_AGENT_ID="asst_xxxxxxxxxxxxx"
+```
+
+### Extending with New Agents
+
+To add a new agent type, simply:
+
+1. Create a new agent class that inherits from `BaseAgent`
+2. Implement the `chat()` method
+3. Add appropriate configuration to `.env`
+
+**Example:**
+```python
+class CustomAgent(BaseAgent):
+    def __init__(self):
+        endpoint = os.getenv("CUSTOM_AGENT_ENDPOINT")
+        agent_id = os.getenv("CUSTOM_AGENT_ID")
+        super().__init__(endpoint=endpoint, agent_id=agent_id)
+    
+    def chat(self, message: str) -> str:
+        # Your custom implementation
+        pass
+```
+
+---
+
+## MCP Server via APIM
+
+This FastAPI service can be **deployed as an MCP (Model Context Protocol) server** through Azure API Management, enabling AI applications to consume your Azure AI agents through a standardized protocol.
+
+### MCP Server Architecture
+
+```
+┌─────────────────────────────────────────┐
+│      [MCP CLIENT APPLICATIONS]          │
+│   (Claude Desktop, IDEs, AI Tools)      │
+└──────────────────┬──────────────────────┘
+                   │ MCP Protocol
+                   ▼
+┌─────────────────────────────────────────┐
+│      [AZURE API MANAGEMENT]             │
+│      • MCP Endpoint Mapping             │
+│      • Authentication                   │
+│      • Rate Limiting                    │
+│      • Load Balancing                   │
+└──────────────────┬──────────────────────┘
+                   │ HTTPS
+                   ▼
+┌─────────────────────────────────────────┐
+│  [AZURE CONTAINER APPS - FastAPI]       │
+│  • /bing-grounding → AI Agent Wrapper   │
+│  • /completion → OpenAI Wrapper         │
+│  • /chat → OpenAI Chat Wrapper          │
+│  • /health → Health Check               │
+└─────────────────────────────────────────┘
+```
+
+### MCP Server Benefits
+
+1. **Standardized Protocol** - MCP clients can discover and use your agents automatically
+2. **Enterprise Security** - APIM handles authentication, authorization, and rate limiting
+3. **Scalability** - Load balance across multiple container instances
+4. **Monitoring** - Centralized logging and analytics through APIM
+5. **Version Management** - Deploy multiple versions side-by-side
+
+### MCP Server Deployment
+
+1. **Deploy FastAPI to Azure Container Apps** (see Production Deployment section)
+2. **Configure APIM to expose MCP endpoints**:
+   - Map MCP protocol operations to FastAPI endpoints
+   - Configure CORS for web-based MCP clients
+   - Set up authentication (API keys, OAuth, etc.)
+3. **Register with MCP clients**:
+   - Provide APIM endpoint URL
+   - Configure authentication credentials
+   - MCP clients will auto-discover available agents
+
+### Example MCP Client Configuration
+
+```json
+{
+  "mcpServers": {
+    "azure-ai-agents": {
+      "url": "https://your-apim.azure-api.net",
+      "apiKey": "your-apim-subscription-key",
+      "endpoints": {
+        "bing-grounding": "/bing-grounding",
+        "completion": "/completion",
+        "chat": "/chat"
+      }
+    }
+  }
+}
 ```
 
 ---
@@ -631,33 +864,51 @@ done
 
 ```
 simple_openai_api_wrapper/
-├── ai/
-│   └── azure_openai_client.py    # Azure OpenAI client wrapper
-├── app/
+├── agents/                         # AI Agent implementations
 │   ├── __init__.py
-│   ├── chat_completion.py        # Completion and chat logic
-│   └── main.py                   # FastAPI application and endpoints
-├── models/
-│   └── model.py                  # Pydantic models
-├── apim-policy.xml               # Main APIM policy (load balancing + circuit breaker)
-├── apim-healthcheck-monitor.xml  # Optional active health monitoring policy
-├── docker-compose.yaml           # Local development with Docker
-├── dockerfile                    # Container image definition
-├── env.sample                    # Environment variable template
-├── main.py                       # Application entry point
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+│   ├── base_agent.py              # Abstract base class for all agents
+│   └── agent_bing_grounding.py    # Bing grounding agent with citation extraction
+├── ai/                             # Azure OpenAI integration
+│   ├── __init__.py
+│   └── azure_openai_client.py     # Azure OpenAI client wrapper
+├── app/                            # FastAPI application
+│   ├── __init__.py
+│   ├── chat_completion.py         # Completion and chat logic
+│   ├── create_table.py            # Database table creation (optional)
+│   └── main.py                    # FastAPI endpoints (/health, /completion, /chat, /bing-grounding)
+├── models/                         # Data models
+│   ├── __init__.py
+│   └── model.py                   # Pydantic models (Messages, etc.)
+├── apim-policy.xml                # Main APIM policy (load balancing + circuit breaker)
+├── apim-policy-with-healthcheck.xml  # APIM policy with enhanced health monitoring
+├── apim-healthcheck-monitor.xml   # Optional active health monitoring policy
+├── docker-compose.yaml            # Local development with Docker
+├── dockerfile                     # Container image definition
+├── env.sample                     # Environment variable template
+├── main.py                        # Application entry point
+├── requirements.txt               # Python dependencies (openai, fastapi, azure-ai-projects, etc.)
+├── _env_activate.bat              # Windows: Activate virtual environment
+├── _env_create.bat                # Windows: Create virtual environment
+├── _install.bat                   # Windows: Install dependencies
+├── _run_server.bat                # Windows: Run FastAPI server locally
+├── _up.bat                        # Windows: Start Docker Compose
+├── _down.bat                      # Windows: Stop Docker Compose
+└── README.md                      # This file
 ```
 
 ## Environment Variables
 
 | Variable | Description | Example |
 |----------|-------------|---------|
+| **Azure OpenAI Configuration** | | |
 | `OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | `https://your-instance.openai.azure.com/` |
 | `OPENAI_API_KEY` | Azure OpenAI API key | `your-api-key` |
 | `OPENAI_API_VERSION` | API version | `2025-01-01-preview` |
 | `OPENAI_MODEL_DEPLOYMENT_NAME` | Deployment name | `gpt-4` or `o1` |
 | `OPENAI_PROMPT` | Default system prompt | `You are a helpful assistant.` |
+| **Azure AI Agent Configuration** | | |
+| `AZURE_AI_PROJECT_ENDPOINT` | Azure AI Project endpoint | `https://your-project.services.ai.azure.com/api/projects/yourProject` |
+| `AZURE_AI_AGENT_ID` | Azure AI Agent ID | `asst_xxxxxxxxxxxxx` |
 
 ## License
 
