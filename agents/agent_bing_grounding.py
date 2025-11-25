@@ -26,6 +26,7 @@ class BingGroundingAgent(BaseAgent):
     
     def chat(self, message: str) -> str:
         """Process a single message using Azure AI Agent with Bing grounding"""
+        thread = None
         try:
             # Create a new thread for this conversation
             thread = self.project.agents.threads.create()
@@ -103,6 +104,14 @@ class BingGroundingAgent(BaseAgent):
             
         except Exception as e:
             return f"Error processing request: {str(e)}"
+        finally:
+            # Clean up the thread after processing
+            if thread:
+                try:
+                    self.project.agents.threads.delete(thread.id)
+                except Exception as cleanup_error:
+                    # Log but don't fail the request if cleanup fails
+                    print(f"Warning: Failed to delete thread {thread.id}: {cleanup_error}")
 
 
 # Create singleton instance
